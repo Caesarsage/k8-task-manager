@@ -17,9 +17,14 @@ spec:
         app: backend
         tier: api
     spec:
+      # Security Context: Defines security settings for pods and containers
+      securityContext:
+        runAsNonRoot: true # Don't allow root
+        runAsUser: 1000 # Run as user ID 1000
+        fsGroup: 2000 # File system group
+
       # Init Containers run BEFORE main containers
       initContainers:
-
       # Init Container 1: Wait for PostgreSQL
       - name: wait-for-postgres
         image: busybox:1.35
@@ -96,7 +101,13 @@ spec:
       # Main application container (starts AFTER all init containers succeed)
       containers:
       - name: backend
-        image: task-backend:v1
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        image: task-backend:v2
         imagePullPolicy: Never  # Use local image
         ports:
         - containerPort: 3000

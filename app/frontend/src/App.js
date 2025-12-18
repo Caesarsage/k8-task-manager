@@ -139,7 +139,7 @@ function App() {
     <div className="App">
       <header className="header">
         <h1>📋 Task Manager</h1>
-        <p>Kubernetes Bootcamp - Class 1 Project</p>
+        <p>A Kubernetes focused Project</p>
       </header>
 
       {/* Stats Dashboard */}

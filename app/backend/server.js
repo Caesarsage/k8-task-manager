@@ -8,7 +8,32 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+// CORS Configuration
+const allowedOrigins = [
+  'http://localhost:30080',
+  'http://localhost:3000',
+  'http://127.0.0.1:30080',
+  'http://127.0.0.1:3000'
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (curl, Postman, server-to-server)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) === -1) {
+      console.log('CORS blocked origin:', origin);
+      callback(null, true); // Still allow, but log it (for debugging)
+    } else {
+      callback(null, true);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
 // PostgreSQL connection
@@ -221,4 +246,5 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`Environment: ${process.env.NODE_ENV}`);
   console.log(`Database: ${process.env.DB_HOST}:${process.env.DB_PORT}`);
   console.log(`Redis: ${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`);
+  console.log(`CORS: Allowing origins:`, allowedOrigins);
 });

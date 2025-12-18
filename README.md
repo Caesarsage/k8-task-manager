@@ -11,9 +11,10 @@
 4. [Core Kubernetes Resources](#core-kubernetes-resources)
 5. [Application Deployment](#application-deployment)
 6. [Operations Guide](#operations-guide)
-7. [Troubleshooting](#troubleshooting)
-8. [Quick Reference](#quick-reference)
-9. [Key Learnings](#key-learnings)
+7. [Adding PV and PVC](#pv-pvc)
+8. [Troubleshooting](#troubleshooting)
+9. [Quick Reference](#quick-reference)
+10. [Key Learnings](#key-learnings)
 
 ---
 
@@ -926,6 +927,155 @@ kubectl delete pod <pod-name>
 kubectl get pods -w
 
 # Deployment controller ensures desired state
+```
+
+---
+## PV and PVC
+
+**PersistentVolume (PV)**: Actual storage resource
+- Created by cluster admin
+- Represents real storage (disk, NFS, cloud storage)
+- Exists independent of pods
+
+**PersistentVolumeClaim (PVC)**: Request for storage
+- Created by developers
+- Requests specific size and access mode
+- Kubernetes binds PVC to suitable PV
+
+**Think of it like:**
+- **PV** = Apartment building (physical storage)
+- **PVC** = Rental application (storage request)
+- **Binding** = Getting assigned an apartment
+
+
+### Storage Workflow
+```
+Developer creates PVC:
+"I need 10Gi storage with ReadWriteOnce"
+           ↓
+Kubernetes finds matching PV
+           ↓
+PVC bound to PV
+           ↓
+Pod uses PVC in volume definition
+           ↓
+Data persists even if pod deleted
+```
+
+
+
+Let's fix our PostgreSQL to use persistent storage!
+Create k8s/base/postgres-pv.yaml:
+```yml
+yaml# PersistentVolume - The actual storage
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-pv
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce  # Can be mounted by single node for read/write
+  hostPath:
+    path: "/mnt/data/postgres"  # On the Kind node
+  persistentVolumeReclaimPolicy: Retain  # Keep data when PVC deleted
+
+---
+# PersistentVolumeClaim - The storage request
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: task-app
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+Access Modes Explained:
+```
+
+- **ReadWriteOnce** (RWO): Mount by single node (read-write)
+- **ReadOnlyMany** (ROX): Mount by multiple nodes (read-only)
+- **ReadWriteMany** (RWX): Mount by multiple nodes (read-write)
+
+Update k8s/base/postgres-deployment.yaml:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: task-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: DB_NAME
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PASSWORD
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata  # Important!
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc  # ✅ Using PVC now!
 ```
 
 ---

@@ -3,6 +3,9 @@
 
 ---
 
+![K8s Lens](./public/assets/image-1.png)
+
+
 ## Table of Contents
 
 1. [Overview](#overview)
@@ -19,6 +22,8 @@
 ---
 
 ## Overview
+
+![task manager](./public/assets/image.png)
 
 ### What You Built
 

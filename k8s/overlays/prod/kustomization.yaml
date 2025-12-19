@@ -5,3 +5,8 @@ namePrefix: prod-
 
 resources:
   - ../../base
+
+patchesStrategicMerge:
+  - backend-deployment-patch.yaml
+  - frontend-deployment-patch.yaml
+  - configmap-patch.yaml

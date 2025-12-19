@@ -201,38 +201,147 @@ kubectl config set-context --current --namespace=task-app
 
 ### Project Structure
 
+This repo is structured like a real-world app with separate app code and Kubernetes manifests:
+
 ```
-kubernetes-bootcamp/
-└── class1/
-    ├── kind-cluster-config.yaml
-    ├── app/
-    │   ├── backend/
-    │   │   ├── Dockerfile
-    │   │   ├── package.json
-    │   │   ├── server.js
-    │   │   └── .dockerignore
-    │   └── frontend/
-    │       ├── Dockerfile
-    │       ├── nginx.conf
-    │       ├── package.json
-    │       ├── .dockerignore
-    │       ├── public/
-    │       │   └── index.html
-    │       └── src/
-    │           ├── index.js
-    │           ├── index.css
-    │           ├── App.js
-    │           └── App.css
-    └── k8s/
-        └── base/
-            ├── namespace.yaml
-            ├── configmap.yaml
-            ├── secrets.yaml
-            ├── postgres-deployment.yaml
-            ├── redis-deployment.yaml
-            ├── backend-deployment.yaml
-            └── frontend-deployment.yaml
+k8-multi-tier-app/
+├── kind-cluster-config.yaml
+├── app/
+│   ├── backend/
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   └── server.js
+│   └── frontend/
+│       ├── Dockerfile
+│       ├── nginx.conf
+│       ├── package.json
+│       ├── public/
+│       │   └── index.html
+│       └── src/
+│           ├── index.js
+│           ├── index.css
+│           ├── App.js
+│           └── App.css
+└── k8s/
+    ├── base/                # Environment-agnostic "golden" manifests
+    │   ├── kustomization.yaml
+    │   ├── namespaces/
+    │   │   └── namespace.yaml
+    │   ├── config/
+    │   │   ├── configmap.yaml
+    │   │   └── secrets.yaml
+    │   ├── apps/
+    │   │   ├── backend/
+    │   │   │   ├── deployment.yaml
+    │   │   │   └── pdb.yaml
+    │   │   └── frontend/
+    │   │       └── deployment.yaml
+    │   ├── databases/
+    │   │   └── postgres/
+    │   │       ├── deployment.yaml
+    │   │       ├── storage/
+    │   │       │   ├── postgres-pv.yaml
+    │   │       │   └── backup-pvc.yaml
+    │   │       ├── backup/
+    │   │       │   └── backup-cronjob.yaml
+    │   │       └── migrations/
+    │   │           └── db-migration-job.yaml
+    │   ├── cache/
+    │   │   └── redis/
+    │   │       ├── deployment.yaml
+    │   │       └── statefulset.yaml
+    │   ├── infra/
+    │   │   ├── logging/
+    │   │   │   ├── fluentd-daemonset.yaml
+    │   │   │   └── fluentd-rbac.yaml
+    │   │   ├── network/
+    │   │   │   └── network-policies.yaml
+    │   │   ├── rbac/
+    │   │   │   └── rbac.yaml
+    │   │   └── quotas/
+    │   │       └── resource-quota.yaml
+    │   └── pdbs/
+    │       └── all-pdbs.yaml
+    └── overlays/            # Environment-specific overlays
+        ├── dev/
+        │   └── kustomization.yaml
+        └── prod/
+            └── kustomization.yaml
 ```
+
+### End-to-End Flow: From Code to Running App
+
+This section ties everything together so you can see the complete flow.
+
+#### 1. Build and load container images into Kind
+
+```bash
+# Backend
+cd app/backend
+docker build -t task-backend:v1 .
+kind load docker-image task-backend:v1 --name bootcamp
+
+# Frontend
+cd ../frontend
+docker build -t task-frontend:v1 .
+kind load docker-image task-frontend:v1 --name bootcamp
+```
+
+#### 2. Apply Kubernetes manifests (using kustomize)
+
+You now have a **base** and **overlays** that follow industry-standard kustomize structure.
+
+- **Apply the shared base only** (no env-specific customizations):
+
+```bash
+kubectl apply -k k8s/base
+```
+
+- **Apply the dev overlay** (recommended for local dev):
+
+```bash
+kubectl apply -k k8s/overlays/dev
+```
+
+- **Apply the prod overlay** (example for a prod-like config):
+
+```bash
+kubectl apply -k k8s/overlays/prod
+```
+
+You can also preview what kustomize will generate:
+
+```bash
+kubectl kustomize k8s/overlays/dev | less
+```
+
+#### 3. What gets created (logical flow)
+
+- **Namespace & config**
+  - `k8s/base/namespaces/namespace.yaml` → creates the `task-app` namespace.
+  - `k8s/base/config/configmap.yaml` → non-sensitive app configuration.
+  - `k8s/base/config/secrets.yaml` → database, Redis, JWT secrets.
+
+- **Data layer**
+  - `k8s/base/databases/postgres/storage/postgres-pv.yaml` & `backup-pvc.yaml` → persistent storage.
+  - `k8s/base/databases/postgres/deployment.yaml` → PostgreSQL pod.
+  - `k8s/base/cache/redis/*` → Redis deployment/statefulset.
+
+- **Application layer**
+  - `k8s/base/apps/backend/*` → Node.js API deployment + PDB.
+  - `k8s/base/apps/frontend/deployment.yaml` → React+Nginx frontend.
+
+- **Platform/cluster services**
+  - `k8s/base/infra/*` → logging (Fluentd), network policies, RBAC, resource quotas.
+  - `k8s/base/pdbs/all-pdbs.yaml` → consolidated PodDisruptionBudgets.
+
+The **overlay** directories (`k8s/overlays/dev` and `k8s/overlays/prod`) are where you would add patches for:
+
+- replica counts per environment  
+- different resource requests/limits  
+- environment-specific config/secrets or hostnames  
+
+so that the **base** stays clean and reusable.
 
 ---
 

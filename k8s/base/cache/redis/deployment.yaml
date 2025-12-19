@@ -1,4 +1,4 @@
-# REPLACE with statefullset (redis-statefulset.yml)
+# DEPRECATED: REPLACE with statefullset (redis-statefulset.yml)
 
 apiVersion: apps/v1
 kind: Deployment

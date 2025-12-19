@@ -11,7 +11,7 @@ resources:
 
   # Application workloads
   - apps/backend/deployment.yaml
-  - apps/backend/pdb.yaml
+  - apps/backend/pdb.yaml # Pod disruption budgets
   - apps/frontend/deployment.yaml
 
   # Databases
@@ -22,7 +22,6 @@ resources:
   - databases/postgres/migrations/db-migration-job.yaml
 
   # Caches
-  - cache/redis/deployment.yaml
   - cache/redis/statefulset.yaml
 
   # Cluster infra
@@ -33,4 +32,4 @@ resources:
   - infra/quotas/resource-quota.yaml
 
   # Pod disruption budgets
-  - pdbs/all-pdbs.yaml
+  # - pdbs/all-pdbs.yaml

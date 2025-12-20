@@ -36,7 +36,7 @@ A complete three-tier task management application running on Kubernetes:
 
 ### Technologies Used
 
-- **Kubernetes**: v1.27+ (via Kind)
+- **Kubernetes**: v1.32.2 (via Kind)
 - **Container Runtime**: containerd
 - **Frontend**: React 18, Nginx
 - **Backend**: Node.js 18, Express.js
@@ -337,9 +337,9 @@ kubectl kustomize k8s/overlays/dev | less
 
 The **overlay** directories (`k8s/overlays/dev` and `k8s/overlays/prod`) are where you would add patches for:
 
-- replica counts per environment  
-- different resource requests/limits  
-- environment-specific config/secrets or hostnames  
+- replica counts per environment
+- different resource requests/limits
+- environment-specific config/secrets or hostnames
 
 so that the **base** stays clean and reusable.
 

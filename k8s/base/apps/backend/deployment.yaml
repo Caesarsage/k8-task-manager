@@ -103,6 +103,7 @@ spec:
       - name: backend
         securityContext:
           allowPrivilegeEscalation: false
+          runAsNonRoot: true
           readOnlyRootFilesystem: true
           capabilities:
             drop:
